@@ -1,0 +1,156 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+@layer theme {
+  @theme {
+    --color-lingua-purple: #6c4ef5;
+    --color-lingua-deep-purple: #5b3bf6;
+    --color-lingua-blue: #4d8bff;
+    --color-lingua-green: #21c16b;
+
+    --color-success: #21c16b;
+    --color-warning: #ffc800;
+    --color-streak: #ff8a00;
+    --color-error: #ff4d4f;
+    --color-info: #4d8bff;
+
+    --color-text-primary: #0d132b;
+    --color-text-secondary: #6b7280;
+    --color-border: #e5e7eb;
+    --color-surface: #f6f7fb;
+    --color-background: #ffffff;
+
+    --font-poppins: "Poppins-Regular";
+    --font-poppins-medium: "Poppins-Medium";
+    --font-poppins-semibold: "Poppins-SemiBold";
+    --font-poppins-bold: "Poppins-Bold";
+
+    --radius-card: 24px;
+    --radius-swatch: 12px;
+    --radius-button: 16px;
+
+    --shadow-card: 0 12px 32px rgb(13 19 43 / 0.05);
+    --shadow-soft: 0 8px 22px rgb(13 19 43 / 0.08);
+  }
+}
+
+@layer utilities {
+  .font-poppins {
+    font-family: "Poppins-Regular";
+  }
+
+  .font-poppins-medium {
+    font-family: "Poppins-Medium";
+  }
+
+  .font-poppins-semibold {
+    font-family: "Poppins-SemiBold";
+  }
+
+  .font-poppins-bold {
+    font-family: "Poppins-Bold";
+  }
+
+  .h1 {
+    color: var(--color-text-primary);
+    font-family: "Poppins-Bold";
+    font-size: 32px;
+    line-height: 38.4px;
+  }
+
+  .h2 {
+    color: var(--color-text-primary);
+    font-family: "Poppins-SemiBold";
+    font-size: 24px;
+    line-height: 31.2px;
+  }
+
+  .h3 {
+    color: var(--color-text-primary);
+    font-family: "Poppins-SemiBold";
+    font-size: 20px;
+    line-height: 26px;
+  }
+
+  .h4 {
+    color: var(--color-text-primary);
+    font-family: "Poppins-Medium";
+    font-size: 16px;
+    line-height: 22.4px;
+  }
+
+  .body-lg {
+    color: var(--color-text-secondary);
+    font-family: "Poppins-Regular";
+    font-size: 16px;
+    line-height: 25.6px;
+  }
+
+  .body-md {
+    color: var(--color-text-secondary);
+    font-family: "Poppins-Regular";
+    font-size: 14px;
+    line-height: 22.4px;
+  }
+
+  .body-sm {
+    color: var(--color-text-secondary);
+    font-family: "Poppins-Regular";
+    font-size: 13px;
+    line-height: 20.8px;
+  }
+
+  .caption {
+    color: var(--color-text-secondary);
+    font-family: "Poppins-Regular";
+    font-size: 11px;
+    line-height: 15.4px;
+  }
+
+  .design-card {
+    background-color: var(--color-background);
+    border-color: var(--color-border);
+    border-radius: var(--radius-card);
+    border-width: 1px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-header {
+    border-bottom-color: var(--color-border);
+    border-bottom-width: 1px;
+    padding-bottom: 10px;
+  }
+
+  .section-title {
+    color: var(--color-lingua-deep-purple);
+    font-family: "Poppins-Bold";
+    font-size: 18px;
+    letter-spacing: 0;
+    line-height: 23.4px;
+    text-transform: uppercase;
+  }
+
+  .swatch {
+    border-radius: var(--radius-swatch);
+    height: 82px;
+    width: 82px;
+  }
+
+  .token-label {
+    color: var(--color-text-secondary);
+    font-family: "Poppins-SemiBold";
+    font-size: 11px;
+    line-height: 15.4px;
+    text-transform: uppercase;
+  }
+
+  .token-value {
+    color: var(--color-text-secondary);
+    font-family: "Poppins-Regular";
+    font-size: 11px;
+    line-height: 15.4px;
+  }
+}
