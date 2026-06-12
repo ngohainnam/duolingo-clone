@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@clerk/expo";
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { Redirect, router } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -15,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { images } from "@/constants/images";
 import { languages } from "@/data/languages";
+import { useLanguageStore } from "@/store/language-store";
 import type { LanguageId } from "@/types/learning";
 
 const learnerCounts: Record<LanguageId, string> = {
@@ -24,10 +26,22 @@ const learnerCounts: Record<LanguageId, string> = {
 };
 
 export default function LanguageSelectionScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const { width } = useWindowDimensions();
   const [query, setQuery] = useState("");
+  const savedLanguageId = useLanguageStore((state) => state.selectedLanguageId);
+  const hasHydrated = useLanguageStore((state) => state.hasHydrated);
+  const setSelectedLanguage = useLanguageStore(
+    (state) => state.setSelectedLanguage,
+  );
   const [selectedLanguageId, setSelectedLanguageId] =
-    useState<LanguageId>("spanish");
+    useState<LanguageId>(savedLanguageId ?? "spanish");
+
+  useEffect(() => {
+    if (hasHydrated && savedLanguageId) {
+      setSelectedLanguageId(savedLanguageId);
+    }
+  }, [hasHydrated, savedLanguageId]);
 
   const filteredLanguages = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -44,6 +58,10 @@ export default function LanguageSelectionScreen() {
   }, [query]);
 
   const handleClose = () => {
+    if (!savedLanguageId) {
+      return;
+    }
+
     if (router.canGoBack()) {
       router.back();
       return;
@@ -51,6 +69,19 @@ export default function LanguageSelectionScreen() {
 
     router.replace("/");
   };
+
+  const handleConfirm = () => {
+    setSelectedLanguage(selectedLanguageId);
+    router.replace("/");
+  };
+
+  if (!isLoaded || !hasHydrated) {
+    return null;
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/onboarding" />;
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -154,7 +185,7 @@ export default function LanguageSelectionScreen() {
         <View className="mt-auto px-9 pt-8">
           <Pressable
             className="h-17 w-full items-center justify-center rounded-button bg-lingua-deep-purple shadow-soft"
-            onPress={handleClose}
+            onPress={handleConfirm}
           >
             <Text className="font-poppins-bold text-[18px] leading-6 text-white">
               Confirm language

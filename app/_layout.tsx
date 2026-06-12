@@ -51,6 +51,7 @@ export default function RootLayout() {
           name="language-selection"
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="dark" />
     </ClerkProvider>
