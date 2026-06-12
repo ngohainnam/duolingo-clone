@@ -7,7 +7,14 @@ export const units: Unit[] = [
     order: 1,
     title: "First Conversations",
     description: "Greet people, introduce yourself, and use polite words.",
-    lessonIds: ["spanish-hello", "spanish-polite-words"],
+    lessonIds: [
+      "spanish-hello",
+      "spanish-polite-words",
+      "spanish-cafe",
+      "spanish-travel",
+      "spanish-shopping",
+      "spanish-family",
+    ],
   },
   {
     id: "french-first-conversations",
@@ -15,7 +22,14 @@ export const units: Unit[] = [
     order: 1,
     title: "First Conversations",
     description: "Say hello and introduce yourself in French.",
-    lessonIds: ["french-hello"],
+    lessonIds: [
+      "french-hello",
+      "french-polite-words",
+      "french-cafe",
+      "french-travel",
+      "french-shopping",
+      "french-family",
+    ],
   },
   {
     id: "japanese-first-conversations",
@@ -23,6 +37,13 @@ export const units: Unit[] = [
     order: 1,
     title: "First Conversations",
     description: "Practice polite greetings in Japanese.",
-    lessonIds: ["japanese-hello"],
+    lessonIds: [
+      "japanese-hello",
+      "japanese-polite-words",
+      "japanese-cafe",
+      "japanese-travel",
+      "japanese-shopping",
+      "japanese-family",
+    ],
   },
 ];

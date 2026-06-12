@@ -1,6 +1,6 @@
 import type { Lesson } from "@/types/learning";
 
-export const lessons: Lesson[] = [
+const coreLessons: Lesson[] = [
   {
     id: "spanish-hello",
     unitId: "spanish-first-conversations",
@@ -311,3 +311,219 @@ export const lessons: Lesson[] = [
     },
   },
 ];
+
+type LessonSeed = {
+  id: string;
+  unitId: string;
+  languageId: Lesson["languageId"];
+  order: number;
+  title: string;
+  description: string;
+  term: string;
+  translation: string;
+};
+
+function createLesson(seed: LessonSeed): Lesson {
+  const {
+    term,
+    translation,
+    ...lessonDetails
+  } = seed;
+  const vocabularyId = `${seed.id}-word`;
+  const phraseId = `${seed.id}-phrase`;
+
+  return {
+    ...lessonDetails,
+    difficulty: "beginner",
+    estimatedMinutes: 6,
+    xpReward: 10,
+    goals: [
+      {
+        id: `${seed.id}-goal`,
+        description: `Use a helpful phrase about ${seed.title.toLowerCase()}.`,
+      },
+    ],
+    vocabulary: [
+      {
+        id: vocabularyId,
+        term,
+        translation,
+      },
+    ],
+    phrases: [
+      {
+        id: phraseId,
+        text: term,
+        translation,
+      },
+    ],
+    activities: [
+      {
+        id: `${seed.id}-learn`,
+        type: "learn-vocabulary",
+        instruction: "Learn this useful expression.",
+        vocabularyIds: [vocabularyId],
+      },
+      {
+        id: `${seed.id}-repeat`,
+        type: "listen-and-repeat",
+        instruction: "Listen, then repeat the phrase.",
+        phraseId,
+      },
+    ],
+    aiTeacherPrompt: {
+      systemPrompt: `You are a friendly ${seed.languageId} teacher helping a beginner practice ${seed.title.toLowerCase()}.`,
+      openingMessage: `Let's practice ${seed.title.toLowerCase()}.`,
+      coachingNotes: [
+        "Model the phrase slowly before asking the learner to repeat it.",
+        "Keep corrections short, clear, and encouraging.",
+      ],
+      successMessage: `Great work! You practiced ${seed.title.toLowerCase()}.`,
+    },
+  };
+}
+
+const additionalLessons: Lesson[] = [
+  createLesson({
+    id: "spanish-cafe",
+    unitId: "spanish-first-conversations",
+    languageId: "spanish",
+    order: 3,
+    title: "At the Cafe",
+    description: "Order a drink and chat at a cafe.",
+    term: "Un cafe, por favor.",
+    translation: "A coffee, please.",
+  }),
+  createLesson({
+    id: "spanish-travel",
+    unitId: "spanish-first-conversations",
+    languageId: "spanish",
+    order: 4,
+    title: "Travel & Directions",
+    description: "Ask where to go and understand directions.",
+    term: "Donde esta la estacion?",
+    translation: "Where is the station?",
+  }),
+  createLesson({
+    id: "spanish-shopping",
+    unitId: "spanish-first-conversations",
+    languageId: "spanish",
+    order: 5,
+    title: "Shopping",
+    description: "Ask prices and buy everyday items.",
+    term: "Cuanto cuesta?",
+    translation: "How much does it cost?",
+  }),
+  createLesson({
+    id: "spanish-family",
+    unitId: "spanish-first-conversations",
+    languageId: "spanish",
+    order: 6,
+    title: "Family & Friends",
+    description: "Talk about the important people in your life.",
+    term: "Esta es mi familia.",
+    translation: "This is my family.",
+  }),
+  createLesson({
+    id: "french-polite-words",
+    unitId: "french-first-conversations",
+    languageId: "french",
+    order: 2,
+    title: "Be Polite",
+    description: "Use please and thank you in French.",
+    term: "Merci beaucoup.",
+    translation: "Thank you very much.",
+  }),
+  createLesson({
+    id: "french-cafe",
+    unitId: "french-first-conversations",
+    languageId: "french",
+    order: 3,
+    title: "At the Cafe",
+    description: "Order a drink and snack in French.",
+    term: "Un cafe, s'il vous plait.",
+    translation: "A coffee, please.",
+  }),
+  createLesson({
+    id: "french-travel",
+    unitId: "french-first-conversations",
+    languageId: "french",
+    order: 4,
+    title: "Travel & Directions",
+    description: "Find your way around a new city.",
+    term: "Ou est la gare?",
+    translation: "Where is the station?",
+  }),
+  createLesson({
+    id: "french-shopping",
+    unitId: "french-first-conversations",
+    languageId: "french",
+    order: 5,
+    title: "Shopping",
+    description: "Ask prices and shop with confidence.",
+    term: "C'est combien?",
+    translation: "How much is it?",
+  }),
+  createLesson({
+    id: "french-family",
+    unitId: "french-first-conversations",
+    languageId: "french",
+    order: 6,
+    title: "Family & Friends",
+    description: "Introduce your family and friends.",
+    term: "Voici ma famille.",
+    translation: "Here is my family.",
+  }),
+  createLesson({
+    id: "japanese-polite-words",
+    unitId: "japanese-first-conversations",
+    languageId: "japanese",
+    order: 2,
+    title: "Be Polite",
+    description: "Use polite everyday expressions.",
+    term: "Sumimasen.",
+    translation: "Excuse me.",
+  }),
+  createLesson({
+    id: "japanese-cafe",
+    unitId: "japanese-first-conversations",
+    languageId: "japanese",
+    order: 3,
+    title: "At the Cafe",
+    description: "Order a drink at a Japanese cafe.",
+    term: "Koohii o kudasai.",
+    translation: "Coffee, please.",
+  }),
+  createLesson({
+    id: "japanese-travel",
+    unitId: "japanese-first-conversations",
+    languageId: "japanese",
+    order: 4,
+    title: "Travel & Directions",
+    description: "Ask for directions while traveling.",
+    term: "Eki wa doko desu ka?",
+    translation: "Where is the station?",
+  }),
+  createLesson({
+    id: "japanese-shopping",
+    unitId: "japanese-first-conversations",
+    languageId: "japanese",
+    order: 5,
+    title: "Shopping",
+    description: "Ask prices and shop for souvenirs.",
+    term: "Ikura desu ka?",
+    translation: "How much is it?",
+  }),
+  createLesson({
+    id: "japanese-family",
+    unitId: "japanese-first-conversations",
+    languageId: "japanese",
+    order: 6,
+    title: "Family & Friends",
+    description: "Talk simply about family and friends.",
+    term: "Watashi no kazoku desu.",
+    translation: "This is my family.",
+  }),
+];
+
+export const lessons: Lesson[] = [...coreLessons, ...additionalLessons];

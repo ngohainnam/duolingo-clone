@@ -55,6 +55,7 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="lesson/[lessonId]" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="dark" />
       </ClerkProvider>
