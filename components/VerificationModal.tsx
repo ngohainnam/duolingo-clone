@@ -1,5 +1,4 @@
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     KeyboardAvoidingView,
     Modal,
@@ -14,28 +13,47 @@ import {
 interface VerificationModalProps {
   visible: boolean;
   onClose: () => void;
+  onVerify: (code: string) => Promise<boolean>;
   email: string;
 }
 
 export function VerificationModal({
   visible,
   onClose,
+  onVerify,
   email,
 }: VerificationModalProps) {
   const [code, setCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  const router = useRouter();
+
+  useEffect(() => {
+    if (code.length !== 6 || isVerifying) {
+      return;
+    }
+
+    setIsVerifying(true);
+
+    void onVerify(code)
+      .then((wasVerified) => {
+        if (wasVerified) {
+          setCode("");
+          onClose();
+        } else {
+          setCode("");
+          inputRef.current?.focus();
+        }
+      })
+      .catch((error) => {
+        console.error("Verification failed", error);
+        setCode("");
+        inputRef.current?.focus();
+      })
+      .finally(() => setIsVerifying(false));
+  }, [code, isVerifying, onClose, onVerify]);
 
   const handleChange = (text: string) => {
-    const digits = text.replace(/[^0-9]/g, "").slice(0, 6);
-    setCode(digits);
-    if (digits.length === 6) {
-      setTimeout(() => {
-        setCode("");
-        onClose();
-        router.replace("/");
-      }, 400);
-    }
+    setCode(text.replace(/[^0-9]/g, "").slice(0, 6));
   };
 
   return (
@@ -44,6 +62,7 @@ export function VerificationModal({
       transparent
       animationType="fade"
       onShow={() => inputRef.current?.focus()}
+      onRequestClose={onClose}
     >
       <View style={{ flex: 1 }}>
         {/* Backdrop */}

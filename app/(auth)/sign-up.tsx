@@ -1,19 +1,82 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useSignUp } from "@clerk/expo";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthInput } from "@/components/AuthInput";
 import { VerificationModal } from "@/components/VerificationModal";
 import { images } from "@/constants/images";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { signUp, fetchStatus } = useSignUp();
+  const { signInWithGoogle } = useGoogleAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
+
+  const handleSignUp = async () => {
+    const emailAddress = email.trim();
+
+    if (!emailAddress || !password) {
+      Alert.alert(
+        "Complete your details",
+        "Please enter your email address and password.",
+      );
+      return;
+    }
+
+    const { error } = await signUp.password({ emailAddress, password });
+
+    if (error) {
+      Alert.alert("Could not sign up", error.longMessage ?? error.message);
+      return;
+    }
+
+    const { error: verificationError } =
+      await signUp.verifications.sendEmailCode();
+
+    if (verificationError) {
+      Alert.alert(
+        "Could not send code",
+        verificationError.longMessage ?? verificationError.message,
+      );
+      return;
+    }
+
+    setEmail(emailAddress);
+    setShowVerification(true);
+  };
+
+  const handleVerify = useCallback(
+    async (code: string) => {
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+
+      if (error) {
+        Alert.alert("Invalid code", error.longMessage ?? error.message);
+        return false;
+      }
+
+      if (signUp.status !== "complete") {
+        Alert.alert(
+          "Could not sign up",
+          "Your account needs additional information before it can be created.",
+        );
+        return false;
+      }
+
+      await signUp.finalize({
+        navigate: () => router.replace("/"),
+      });
+
+      return true;
+    },
+    [router, signUp],
+  );
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -63,7 +126,8 @@ export default function SignUpScreen() {
         {/* Sign Up button */}
         <Pressable
           className="mt-6 h-15 w-full items-center justify-center rounded-button bg-lingua-deep-purple"
-          onPress={() => setShowVerification(true)}
+          disabled={fetchStatus === "fetching"}
+          onPress={handleSignUp}
         >
           <Text className="font-poppins-bold text-[18px] text-white">
             Sign Up
@@ -79,26 +143,15 @@ export default function SignUpScreen() {
           <View className="h-px flex-1 bg-border" />
         </View>
 
-        {/* Social buttons */}
-        <View className="gap-3">
-          <Pressable className="h-13.5 flex-row items-center justify-center gap-3 rounded-2xl border border-border bg-white">
+        {/* Google sign up */}
+        <View>
+          <Pressable
+            className="h-13.5 flex-row items-center justify-center gap-3 rounded-2xl border border-border bg-white"
+            onPress={signInWithGoogle}
+          >
             <Ionicons name="logo-google" size={22} color="#4285F4" />
             <Text className="font-poppins-medium text-[16px] text-text-primary">
               Continue with Google
-            </Text>
-          </Pressable>
-
-          <Pressable className="h-13.5 flex-row items-center justify-center gap-3 rounded-2xl border border-border bg-white">
-            <Ionicons name="logo-facebook" size={22} color="#1877F2" />
-            <Text className="font-poppins-medium text-[16px] text-text-primary">
-              Continue with Facebook
-            </Text>
-          </Pressable>
-
-          <Pressable className="h-13.5 flex-row items-center justify-center gap-3 rounded-2xl border border-border bg-white">
-            <Ionicons name="logo-apple" size={22} color="#000000" />
-            <Text className="font-poppins-medium text-[16px] text-text-primary">
-              Continue with Apple
             </Text>
           </Pressable>
         </View>
@@ -119,8 +172,11 @@ export default function SignUpScreen() {
       <VerificationModal
         visible={showVerification}
         onClose={() => setShowVerification(false)}
+        onVerify={handleVerify}
         email={email}
       />
+
+      <View nativeID="clerk-captcha" />
     </SafeAreaView>
   );
 }
