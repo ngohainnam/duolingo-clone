@@ -1,15 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
 
-import { colors, fontFamily } from "@/theme";
+import { fontFamily } from "@/theme";
 
 type TabIconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -22,50 +16,19 @@ const tabIcons: Record<string, { active: TabIconName; inactive: TabIconName }> =
     profile: { active: "person", inactive: "person-outline" },
   };
 
-const ACTIVE_CIRCLE_SIZE = 54;
-
 export function CustomTabBar({
   state,
   descriptors,
   navigation,
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const [tabBarWidth, setTabBarWidth] = useState(0);
-  const activeIndex = useSharedValue(state.index);
-  const itemWidth = tabBarWidth / state.routes.length;
-
-  useEffect(() => {
-    activeIndex.value = withSpring(state.index, {
-      damping: 18,
-      stiffness: 180,
-      mass: 0.7,
-    });
-  }, [activeIndex, state.index]);
-
-  const activeCircleStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX:
-          activeIndex.value * itemWidth +
-          (itemWidth - ACTIVE_CIRCLE_SIZE) / 2,
-      },
-    ],
-  }));
 
   return (
     <View
-      className="bg-white px-3 pt-3"
-      onLayout={(event) => setTabBarWidth(event.nativeEvent.layout.width - 24)}
-      style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}
+      className="bg-white px-3 pt-2"
+      style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}
     >
-      <View className="h-[68px] flex-row">
-        {tabBarWidth > 0 && (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.activeCircle, activeCircleStyle]}
-          />
-        )}
-
+      <View className="h-[72px] flex-row">
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const label =
@@ -105,15 +68,16 @@ export function CustomTabBar({
               style={styles.tabItem}
             >
               <Ionicons
-                color={isFocused ? "#ffffff" : "#67708f"}
+                color={isFocused ? "#694bf6" : "#67708f"}
                 name={isFocused ? icons.active : icons.inactive}
-                size={isFocused ? 27 : 26}
+                size={27}
               />
-              {!isFocused && (
-                <Text numberOfLines={1} style={styles.label}>
-                  {label}
-                </Text>
-              )}
+              <Text
+                numberOfLines={1}
+                style={[styles.label, isFocused && styles.activeLabel]}
+              >
+                {label}
+              </Text>
             </Pressable>
           );
         })}
@@ -124,30 +88,25 @@ export function CustomTabBar({
 
 const styles = StyleSheet.create({
   tabBar: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    boxShadow: "0 -6px 24px rgba(13, 19, 43, 0.08)",
-  },
-  activeCircle: {
-    position: "absolute",
-    top: 7,
-    left: 0,
-    width: ACTIVE_CIRCLE_SIZE,
-    height: ACTIVE_CIRCLE_SIZE,
-    borderRadius: ACTIVE_CIRCLE_SIZE / 2,
-    backgroundColor: colors.brand.deepPurple,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    boxShadow: "0 -4px 18px rgba(13, 19, 43, 0.07)",
   },
   tabItem: {
     flex: 1,
-    height: 68,
+    height: 72,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
+    gap: 4,
   },
   label: {
     color: "#67708f",
     fontFamily: fontFamily.medium,
     fontSize: 11,
     lineHeight: 16,
+  },
+  activeLabel: {
+    color: "#694bf6",
+    fontFamily: fontFamily.semiBold,
   },
 });
