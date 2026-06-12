@@ -3,6 +3,8 @@ import "../global.css";
 import { ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { useEffect } from "react";
+import { PostHogProvider } from "posthog-react-native";
+import { posthog } from "@/lib/posthog";
 
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -33,27 +35,29 @@ export default function RootLayout() {
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <Stack
-        screenOptions={{
-          contentStyle: { backgroundColor: colors.neutral.background },
-          headerShadowVisible: false,
-          headerTintColor: colors.neutral.textPrimary,
-          headerTitleStyle: {
-            color: colors.neutral.textPrimary,
-            fontFamily: fontFamily.semiBold,
-          },
-        }}
-      >
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="language-selection"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="dark" />
-    </ClerkProvider>
+    <PostHogProvider client={posthog}>
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: colors.neutral.background },
+            headerShadowVisible: false,
+            headerTintColor: colors.neutral.textPrimary,
+            headerTitleStyle: {
+              color: colors.neutral.textPrimary,
+              fontFamily: fontFamily.semiBold,
+            },
+          }}
+        >
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="language-selection"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="dark" />
+      </ClerkProvider>
+    </PostHogProvider>
   );
 }
