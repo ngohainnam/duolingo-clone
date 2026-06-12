@@ -47,6 +47,10 @@ export default function RootLayout() {
       >
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="language-selection"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <StatusBar style="dark" />
     </ClerkProvider>

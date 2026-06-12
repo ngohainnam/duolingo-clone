@@ -1,6 +1,9 @@
 import { useAuth } from "@clerk/expo";
-import { Redirect } from "expo-router";
+import { Link, Redirect } from "expo-router";
+import type { Href } from "expo-router";
 import { Pressable, Text, View } from "react-native";
+
+const languageSelectionHref = "/language-selection" as Href;
 
 export default function Index() {
   const { isLoaded, isSignedIn, signOut } = useAuth();
@@ -18,11 +21,20 @@ export default function Index() {
       <Text className="h1 text-center text-text-primary">
         Welcome to lingua
       </Text>
+      <Link href={languageSelectionHref} asChild>
+        <Pressable className="h-16 w-full max-w-80 items-center justify-center rounded-button bg-lingua-purple">
+          <Text className="font-poppins-bold text-lg text-white">
+            Choose a language
+          </Text>
+        </Pressable>
+      </Link>
       <Pressable
-        className="h-16 w-full max-w-80 items-center justify-center rounded-button bg-lingua-purple"
+        className="h-16 w-full max-w-80 items-center justify-center rounded-button border border-border bg-white"
         onPress={() => signOut()}
       >
-        <Text className="font-poppins-bold text-lg text-white">Sign out</Text>
+        <Text className="font-poppins-bold text-lg text-text-primary">
+          Sign out
+        </Text>
       </Pressable>
     </View>
   );
