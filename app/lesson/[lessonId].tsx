@@ -1,7 +1,13 @@
+import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  CallingState,
+  StreamCall,
+  type Call,
+} from "@stream-io/video-react-native-sdk";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -17,11 +23,29 @@ import {
   images,
   lessonImages,
 } from "@/constants/images";
+import { useStreamConnection } from "@/components/stream-video-provider";
 import { languages } from "@/data/languages";
 import { lessons } from "@/data/lessons";
+import {
+  createStreamLessonCall,
+  startVisionAgent,
+  stopVisionAgent,
+  type StreamCallSession,
+  type VisionAgentSession,
+} from "@/lib/stream-api";
 
 type SessionPanel = "phrase" | "subtitles";
+type AudioCallStatus =
+  | "loading"
+  | "connecting"
+  | "joined"
+  | "error"
+  | "ended";
+type AgentConnectionStatus = "idle" | "connecting" | "connected" | "failed";
+type ConversationStatus = "idle" | "listening" | "thinking" | "speaking";
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const AI_TEACHER_USER_ID = "ai-language-teacher";
 
 const feedback = [
   { label: "Speaking", value: "Excellent", color: "#18c92c" },
@@ -30,13 +54,226 @@ const feedback = [
 ] as const;
 
 export default function AudioLessonScreen() {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  const { user } = useUser();
+  const callSessionRef = useRef<StreamCallSession | undefined>(undefined);
+  const agentSessionRef = useRef<VisionAgentSession | undefined>(undefined);
+  const isEndingRef = useRef(false);
+  const {
+    client,
+    error: connectionError,
+    retry: retryStreamConnection,
+  } = useStreamConnection();
   const { lessonId } = useLocalSearchParams<{ lessonId: string }>();
   const { height } = useWindowDimensions();
   const lesson = lessons.find((item) => item.id === lessonId);
   const language = languages.find((item) => item.id === lesson?.languageId);
-  const [isMuted, setIsMuted] = useState(false);
+  const [call, setCall] = useState<Call>();
+  const [callError, setCallError] = useState<string | null>(null);
+  const [callStatus, setCallStatus] = useState<AudioCallStatus>("loading");
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentStatus, setAgentStatus] =
+    useState<AgentConnectionStatus>("idle");
+  const [conversationStatus, setConversationStatus] =
+    useState<ConversationStatus>("idle");
+  const [learnerTranscript, setLearnerTranscript] = useState("");
+  const [teacherTranscript, setTeacherTranscript] = useState("");
+  const [isMuted, setIsMuted] = useState(true);
   const [activePanel, setActivePanel] = useState<SessionPanel>("phrase");
   const [phraseIndex, setPhraseIndex] = useState(0);
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  useEffect(() => {
+    if (connectionError && !client) {
+      setCallError(connectionError);
+      setCallStatus("error");
+    }
+  }, [client, connectionError]);
+
+  useEffect(() => {
+    if (!client || !lesson || !language) {
+      return;
+    }
+
+    let active = true;
+    let lessonCall: Call | undefined;
+    let callSession: StreamCallSession | undefined;
+    let agentSession: VisionAgentSession | undefined;
+    let unsubscribeAgentJoined: (() => void) | undefined;
+    let unsubscribeAgentLeft: (() => void) | undefined;
+    let unsubscribeAgentEvents: (() => void) | undefined;
+
+    const joinAudioCall = async () => {
+      setCallStatus("loading");
+      setCallError(null);
+      setAgentError(null);
+      setAgentStatus("idle");
+      setConversationStatus("idle");
+      setLearnerTranscript("");
+      setTeacherTranscript("");
+      isEndingRef.current = false;
+
+      try {
+        callSession = await createStreamLessonCall(
+          getTokenRef.current,
+          lesson.id,
+          language.id,
+        );
+
+        if (!active) {
+          return;
+        }
+
+        callSessionRef.current = callSession;
+        const newCall = client.call(callSession.callType, callSession.callId, {
+          reuseInstance: true,
+        });
+        lessonCall = newCall;
+        unsubscribeAgentJoined = newCall.on(
+          "call.session_participant_joined",
+          (event) => {
+            if (active && event.participant.user.id === AI_TEACHER_USER_ID) {
+              setAgentStatus("connected");
+            }
+          },
+        );
+        unsubscribeAgentLeft = newCall.on(
+          "call.session_participant_left",
+          (event) => {
+            if (
+              active &&
+              !isEndingRef.current &&
+              event.participant.user.id === AI_TEACHER_USER_ID
+            ) {
+              setAgentError("The AI teacher disconnected.");
+              setAgentStatus("failed");
+            }
+          },
+        );
+        unsubscribeAgentEvents = newCall.on("custom", (event) => {
+          if (!active) {
+            return;
+          }
+
+          const custom = event.custom as Record<string, unknown>;
+
+          if (
+            custom.type === "lesson.agent_state" &&
+            (custom.status === "listening" ||
+              custom.status === "thinking" ||
+              custom.status === "speaking")
+          ) {
+            if (custom.status === "speaking" && newCall.microphone.enabled) {
+              newCall.microphone.disable().catch(console.error);
+              setIsMuted(true);
+            }
+            setConversationStatus(custom.status);
+            return;
+          }
+
+          if (
+            custom.type !== "lesson.transcript" ||
+            typeof custom.text !== "string"
+          ) {
+            return;
+          }
+
+          if (custom.speaker === "learner") {
+            setLearnerTranscript(custom.text);
+          } else if (custom.speaker === "teacher") {
+            setTeacherTranscript(custom.text);
+          }
+          setActivePanel("subtitles");
+        });
+        setCall(newCall);
+        setCallStatus("connecting");
+        await newCall.join({ maxJoinRetries: 1 });
+        await newCall.camera.disable();
+        await newCall.microphone.disable();
+
+        if (active) {
+          setIsMuted(true);
+          setCallStatus("joined");
+        }
+      } catch (error) {
+        if (active) {
+          setCallError(
+            error instanceof Error ? error.message : "Unable to join the call.",
+          );
+          setCallStatus("error");
+        }
+        return;
+      }
+
+      if (!active || !callSession) {
+        return;
+      }
+
+      setAgentStatus("connecting");
+
+      try {
+        agentSession = await startVisionAgent(getTokenRef.current, callSession);
+
+        if (!active) {
+          await stopVisionAgent(
+            getTokenRef.current,
+            callSession,
+            agentSession.sessionId,
+          ).catch(console.error);
+          return;
+        }
+
+        agentSessionRef.current = agentSession;
+      } catch (error) {
+        if (active) {
+          setAgentError(
+            error instanceof Error
+              ? error.message
+              : "Unable to connect the AI teacher.",
+          );
+          setAgentStatus("failed");
+        }
+      }
+    };
+
+    joinAudioCall();
+
+    return () => {
+      active = false;
+      unsubscribeAgentJoined?.();
+      unsubscribeAgentLeft?.();
+      unsubscribeAgentEvents?.();
+      const stopAgent =
+        callSession && agentSession
+          ? stopVisionAgent(
+              getTokenRef.current,
+              callSession,
+              agentSession.sessionId,
+            ).catch(console.error)
+          : Promise.resolve();
+
+      if (callSessionRef.current?.callId === callSession?.callId) {
+        callSessionRef.current = undefined;
+      }
+      if (agentSessionRef.current?.sessionId === agentSession?.sessionId) {
+        agentSessionRef.current = undefined;
+      }
+
+      if (
+        lessonCall &&
+        lessonCall.state.callingState !== CallingState.LEFT
+      ) {
+        Promise.all([stopAgent, lessonCall.leave()]).catch(console.error);
+      } else {
+        stopAgent.catch(console.error);
+      }
+    };
+  }, [client, language, lesson, retryKey]);
 
   if (!lesson) {
     return (
@@ -66,7 +303,104 @@ export default function AudioLessonScreen() {
     }
   };
 
-  return (
+  const toggleSpeaking = async () => {
+    if (!call || callStatus !== "joined") {
+      return;
+    }
+
+    try {
+      if (isMuted) {
+        await call.microphone.enable();
+        setIsMuted(false);
+        setConversationStatus("listening");
+        setLearnerTranscript("");
+        setActivePanel("subtitles");
+      } else {
+        await call.microphone.disable();
+        setIsMuted(true);
+        setConversationStatus("thinking");
+      }
+    } catch (error) {
+      setCallError(
+        error instanceof Error ? error.message : "Unable to change speaking mode.",
+      );
+      setCallStatus("error");
+    }
+  };
+
+  const endCall = async () => {
+    if (!call || callStatus !== "joined") {
+      return;
+    }
+
+    setCallStatus("ended");
+    setAgentStatus("idle");
+    setConversationStatus("idle");
+    isEndingRef.current = true;
+
+    try {
+      const callSession = callSessionRef.current;
+      const agentSession = agentSessionRef.current;
+      const cleanupTasks: Promise<unknown>[] = [];
+      callSessionRef.current = undefined;
+      agentSessionRef.current = undefined;
+
+      if (callSession && agentSession) {
+        cleanupTasks.push(
+          stopVisionAgent(
+            getTokenRef.current,
+            callSession,
+            agentSession.sessionId,
+          ),
+        );
+      }
+
+      if (call.state.callingState !== CallingState.LEFT) {
+        cleanupTasks.push(call.leave());
+      }
+
+      await Promise.allSettled(cleanupTasks);
+    } catch (error) {
+      console.error("Unable to leave the audio lesson call.", error);
+    } finally {
+      router.replace("/(tabs)/learn");
+    }
+  };
+
+  const callStatusLabel =
+    callStatus === "joined" && isMuted
+      ? "Ready"
+      : {
+          loading: "Loading call",
+          connecting: "Connecting",
+          joined: "Joined",
+          error: "Connection error",
+          ended: "Call ended",
+        }[callStatus];
+  const agentStatusLabel = {
+    idle: "Idle",
+    connecting: "Connecting",
+    connected: "Connected",
+    failed: "Failed",
+  }[agentStatus];
+  const agentStatusColor = {
+    idle: "#8992af",
+    connecting: "#1479ff",
+    connected: "#20c718",
+    failed: "#ff4048",
+  }[agentStatus];
+  const conversationStatusLabel = {
+    idle: "Waiting for AI teacher",
+    listening: isMuted ? "Tap Speak to answer" : "Listening to your answer",
+    thinking: "Thinking",
+    speaking: "AI teacher speaking",
+  }[conversationStatus];
+  const speakingDisabled =
+    callStatus !== "joined" ||
+    agentStatus !== "connected" ||
+    conversationStatus === "speaking";
+
+  const screen = (
     <SafeAreaView edges={["top"]} style={styles.screen}>
       <View className="flex-row items-center px-5 pb-4 pt-2">
         <Pressable
@@ -85,12 +419,15 @@ export default function AudioLessonScreen() {
             AI Teacher
           </Text>
           <View className="flex-row items-center gap-2">
-            <View className="h-3 w-3 rounded-full bg-[#20c718]" />
+            <View
+              className="h-3 w-3 rounded-full"
+              style={{ backgroundColor: agentStatusColor }}
+            />
             <Text
               className="font-poppins text-[13px] leading-5 text-[#67708f]"
               numberOfLines={1}
             >
-              Online · {language?.name} · {lesson.title}
+              {agentStatusLabel} · {language?.name} · {lesson.title}
             </Text>
           </View>
         </View>
@@ -155,16 +492,22 @@ export default function AudioLessonScreen() {
             ) : (
               <>
                 <Text
-                  className="font-poppins-medium text-[14px] leading-6 text-text-primary"
+                  className="pr-8 font-poppins-medium text-[14px] leading-6 text-text-primary"
                   numberOfLines={2}
                 >
-                  {lesson.aiTeacherPrompt.openingMessage}
+                  {learnerTranscript
+                    ? `You: ${learnerTranscript}`
+                    : isMuted
+                      ? "Tap Speak, say your answer, then tap Stop."
+                      : "Listening... tap Stop when you finish."}
                 </Text>
                 <Text
                   className="pt-1 font-poppins text-[12px] leading-5 text-[#67708f]"
                   numberOfLines={2}
                 >
-                  {lesson.aiTeacherPrompt.coachingNotes[0]}
+                  {teacherTranscript
+                    ? `AI Teacher: ${teacherTranscript}`
+                    : conversationStatusLabel}
                 </Text>
               </>
             )}
@@ -177,6 +520,47 @@ export default function AudioLessonScreen() {
           </View>
         </View>
 
+        <View
+          className="mx-5 mt-5 flex-row items-center rounded-[20px] bg-white px-4 py-3"
+          style={styles.callInfoCard}
+        >
+          <Image
+            source={{ uri: user?.imageUrl }}
+            contentFit="cover"
+            style={styles.userImage}
+          />
+          <View className="flex-1 px-3">
+            <Text
+              className="font-poppins-semibold text-[14px] text-text-primary"
+              numberOfLines={1}
+            >
+              {user?.fullName ?? user?.username ?? "Learner"}
+            </Text>
+            <Text
+              className="font-poppins text-[12px] text-[#67708f]"
+              numberOfLines={2}
+            >
+              {agentError ??
+                callError ??
+                connectionError ??
+                `${callStatusLabel} · ${conversationStatusLabel}`}
+            </Text>
+          </View>
+          {(callStatus === "error" || agentStatus === "failed") && (
+            <Pressable
+              className="rounded-full bg-[#eeeaff] px-4 py-2"
+              onPress={() => {
+                retryStreamConnection();
+                setRetryKey((value) => value + 1);
+              }}
+            >
+              <Text className="font-poppins-semibold text-[12px] text-lingua-deep-purple">
+                Retry
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
         <View className="flex-row justify-between px-5 pb-7 pt-9">
           <SessionControl
             icon="chatbubbles"
@@ -184,10 +568,11 @@ export default function AudioLessonScreen() {
             onPress={showNextPhrase}
           />
           <SessionControl
-            active={isMuted}
-            icon={isMuted ? "mic-off" : "mic"}
-            label={isMuted ? "Muted" : "Mic"}
-            onPress={() => setIsMuted((value) => !value)}
+            active={!isMuted}
+            disabled={speakingDisabled}
+            icon={isMuted ? "mic" : "stop-circle"}
+            label={isMuted ? "Speak" : "Stop"}
+            onPress={toggleSpeaking}
           />
           <SessionControl
             active={activePanel === "subtitles"}
@@ -201,9 +586,10 @@ export default function AudioLessonScreen() {
           />
           <SessionControl
             danger
+            disabled={callStatus !== "joined"}
             icon="call"
             label="End Call"
-            onPress={() => router.back()}
+            onPress={endCall}
           />
         </View>
 
@@ -234,11 +620,14 @@ export default function AudioLessonScreen() {
 
     </SafeAreaView>
   );
+
+  return call ? <StreamCall call={call}>{screen}</StreamCall> : screen;
 }
 
 type SessionControlProps = {
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   icon: IconName;
   label: string;
   onPress: () => void;
@@ -247,6 +636,7 @@ type SessionControlProps = {
 function SessionControl({
   active = false,
   danger = false,
+  disabled = false,
   icon,
   label,
   onPress,
@@ -258,8 +648,9 @@ function SessionControl({
     <Pressable
       accessibilityLabel={label}
       className="items-center"
+      disabled={disabled}
       onPress={onPress}
-      style={styles.controlPressable}
+      style={[styles.controlPressable, disabled && styles.disabledControl]}
     >
       <View
         className="h-[72px] w-[72px] items-center justify-center rounded-full"
@@ -327,11 +718,24 @@ const styles = StyleSheet.create({
   controlButton: {
     boxShadow: "0 3px 9px rgba(13, 19, 43, 0.10)",
   },
+  disabledControl: {
+    opacity: 0.4,
+  },
   hangupIcon: {
     transform: [{ rotate: "135deg" }],
   },
   feedbackCard: {
     borderCurve: "continuous",
     boxShadow: "0 4px 15px rgba(13, 19, 43, 0.06)",
+  },
+  callInfoCard: {
+    borderCurve: "continuous",
+    boxShadow: "0 3px 12px rgba(13, 19, 43, 0.06)",
+  },
+  userImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#eeeaff",
   },
 });

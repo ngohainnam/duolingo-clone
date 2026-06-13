@@ -9,9 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Lingua to keep video disabled during audio lessons.",
+        "NSMicrophoneUsageDescription": "Allow Lingua to hear you during audio lessons."
+      }
     },
     "android": {
+      "package": "com.ngoha.duolingoclone",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -22,7 +27,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "server",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -39,7 +44,22 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@stream-io/video-react-native-sdk",
+      "@config-plugins/react-native-webrtc",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "packagingOptions": {
+              "exclude": [
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+              ]
+            }
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
